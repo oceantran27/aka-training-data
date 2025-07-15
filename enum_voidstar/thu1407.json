@@ -1,0 +1,1386 @@
+[
+  {
+    "f": [ ],
+    "path_fm": "C:\\Users\\HP\\Downloads\\alexbatalov_fallout1-ce\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+    "c": [ ],
+    "fc": "",
+    "m":     {
+      "called_m" : [ ],
+      "stub_called_m" : [ ],
+      "callee_m" : [ "int EST(int tile1, int tile2)\r\n{\r\n    int x1;\r\n    int y1;\r\n    tile_coord(tile1, &x1, &y1, map_elevation);\r\n\r\n    int x2;\r\n    int y2;\r\n    tile_coord(tile2, &x2, &y2, map_elevation);\r\n\r\n    return idist(x1, y1, x2, y2);\r\n}", "int make_path_func(Object* object, int from, int to, unsigned char* rotations, int a5, PathBuilderCallback* callback)\r\n{\r\n    if (a5) {\r\n        if (callback(object, to, object->elevation) != NULL) {\r\n            return 0;\r\n        }\r\n    }\r\n\r\n    bool isNotInCombat = !isInCombat();\r\n\r\n    memset(seen, 0, sizeof(seen));\r\n\r\n    seen[from / 8] |= 1 << (from & 7);\r\n\r\n    child[0].tile = from;\r\n    child[0].from = -1;\r\n    child[0].rotation = 0;\r\n    child[0].field_C = EST(from, to);\r\n    child[0].field_10 = 0;\r\n\r\n    for (int index = 1; index < 2000; index += 1) {\r\n        child[index].tile = -1;\r\n    }\r\n\r\n    int toScreenX;\r\n    int toScreenY;\r\n    tile_coord(to, &toScreenX, &toScreenY, object->elevation);\r\n\r\n    int closedPathNodeListLength = 0;\r\n    int openPathNodeListLength = 1;\r\n    PathNode temp;\r\n\r\n    while (1) {\r\n        int v63 = -1;\r\n\r\n        PathNode* prev = NULL;\r\n        int v12 = 0;\r\n        for (int index = 0; v12 < openPathNodeListLength; index += 1) {\r\n            PathNode* curr = &(child[index]);\r\n            if (curr->tile != -1) {\r\n                v12++;\r\n                if (v63 == -1 || (curr->field_C + curr->field_10) < (prev->field_C + prev->field_10)) {\r\n                    prev = curr;\r\n                    v63 = index;\r\n                }\r\n            }\r\n        }\r\n\r\n        PathNode* curr = &(child[v63]);\r\n\r\n        memcpy(&temp, curr, sizeof(temp));\r\n\r\n        openPathNodeListLength -= 1;\r\n\r\n        curr->tile = -1;\r\n\r\n        if (temp.tile == to) {\r\n            if (openPathNodeListLength == 0) {\r\n                openPathNodeListLength = 1;\r\n            }\r\n            break;\r\n        }\r\n\r\n        PathNode* curr1 = &(dad[closedPathNodeListLength]);\r\n        memcpy(curr1, &temp, sizeof(temp));\r\n\r\n        closedPathNodeListLength += 1;\r\n\r\n        if (closedPathNodeListLength == 2000) {\r\n            return 0;\r\n        }\r\n\r\n        for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {\r\n            int tile = tile_num_in_direction(temp.tile, rotation, 1);\r\n            int bit = 1 << (tile & 7);\r\n            if ((seen[tile / 8] & bit) != 0) {\r\n                continue;\r\n            }\r\n\r\n            if (tile != to) {\r\n                Object* v24 = callback(object, tile, object->elevation);\r\n                if (v24 != NULL) {\r\n                    if (!anim_can_use_door(object, v24)) {\r\n                        continue;\r\n                    }\r\n                }\r\n            }\r\n\r\n            int v25 = 0;\r\n            for (; v25 < 2000; v25++) {\r\n                if (child[v25].tile == -1) {\r\n                    break;\r\n                }\r\n            }\r\n\r\n            openPathNodeListLength += 1;\r\n\r\n            if (openPathNodeListLength == 2000) {\r\n                return 0;\r\n            }\r\n\r\n            seen[tile / 8] |= bit;\r\n\r\n            PathNode* v27 = &(child[v25]);\r\n            v27->tile = tile;\r\n            v27->from = temp.tile;\r\n            v27->rotation = rotation;\r\n\r\n            int newX;\r\n            int newY;\r\n            tile_coord(tile, &newX, &newY, object->elevation);\r\n\r\n            v27->field_C = idist(newX, newY, toScreenX, toScreenY);\r\n            v27->field_10 = temp.field_10 + 50;\r\n\r\n            if (isNotInCombat && temp.rotation != rotation) {\r\n                v27->field_10 += 10;\r\n            }\r\n        }\r\n\r\n        if (openPathNodeListLength == 0) {\r\n            break;\r\n        }\r\n    }\r\n\r\n    if (openPathNodeListLength != 0) {\r\n        unsigned char* v39 = rotations;\r\n        int index = 0;\r\n        for (; index < 800; index++) {\r\n            if (temp.tile == from) {\r\n                break;\r\n            }\r\n\r\n            if (v39 != NULL) {\r\n                *v39 = temp.rotation & 0xFF;\r\n                v39 += 1;\r\n            }\r\n\r\n            int j = 0;\r\n            while (dad[j].tile != temp.from) {\r\n                j++;\r\n            }\r\n\r\n            PathNode* v36 = &(dad[j]);\r\n            memcpy(&temp, v36, sizeof(temp));\r\n        }\r\n\r\n        if (rotations != NULL) {\r\n            // Looks like array resevering, probably because A* finishes it's path from end to start,\r\n            // this probably reverses it start-to-end.\r\n            unsigned char* beginning = rotations;\r\n            unsigned char* ending = rotations + index - 1;\r\n            int middle = index / 2;\r\n            for (int index = 0; index < middle; index++) {\r\n                unsigned char rotation = *ending;\r\n                *ending = *beginning;\r\n                *beginning = rotation;\r\n\r\n                ending -= 1;\r\n                beginning += 1;\r\n            }\r\n        }\r\n\r\n        return index;\r\n    }\r\n\r\n    return 0;\r\n}" ]
+    },
+    "datatest": [
+      {
+        "id" : 0,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_0(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_0\";\n\n// set up\n;\n\n\n\nint x1=0;\n\n\nint y1=0;\n\n\nint x2=0;\n\n\nint y2=0;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_0\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=0;\n\n\nint y1=0;\n\n\nint x2=0;\n\n\nint y2=0;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_0\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_0\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_0\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 1,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "3"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "4"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_9(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_9\";\n\n// set up\n;\n\n\n\nint x1=1;\n\n\nint y1=2;\n\n\nint x2=3;\n\n\nint y2=4;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_9\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=1;\n\n\nint y1=2;\n\n\nint x2=3;\n\n\nint y2=4;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_9\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_9\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_9\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 2,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_7(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_7\";\n\n// set up\n;\n\n\n\nint x1=2;\n\n\nint y1=1;\n\n\nint x2=1;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_7\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=2;\n\n\nint y1=1;\n\n\nint x2=1;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_7\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_7\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1946###sois===62877###eois===62886###lif===4###soif===96###eoif===105###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_7\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        dx = -dx;\r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 3,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_8(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_8\";\n\n// set up\n;\n\n\n\nint x1=2;\n\n\nint y1=1;\n\n\nint x2=2;\n\n\nint y2=1;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_8\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=2;\n\n\nint y1=1;\n\n\nint x2=2;\n\n\nint y2=1;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_8\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_8\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_8\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 4,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_5(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_5\";\n\n// set up\n;\n\n\n\nint x1=1;\n\n\nint y1=1;\n\n\nint x2=2;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_5\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=1;\n\n\nint y1=1;\n\n\nint x2=2;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_5\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_5\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_5\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 5,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_6(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_6\";\n\n// set up\n;\n\n\n\nint x1=1;\n\n\nint y1=2;\n\n\nint x2=1;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_6\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=1;\n\n\nint y1=2;\n\n\nint x2=1;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_6\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_6\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_6\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 6,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_3(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_3\";\n\n// set up\n;\n\n\n\nint x1=0;\n\n\nint y1=1;\n\n\nint x2=0;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_3\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=0;\n\n\nint y1=1;\n\n\nint x2=0;\n\n\nint y2=2;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_3\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_3\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_3\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 7,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_4(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_4\";\n\n// set up\n;\n\n\n\nint x1=0;\n\n\nint y1=2;\n\n\nint x2=0;\n\n\nint y2=1;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_4\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=0;\n\n\nint y1=2;\n\n\nint x2=0;\n\n\nint y2=1;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_4\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_4\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1951###sois===62947###eois===62956###lif===9###soif===166###eoif===175###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_4\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        dy = -dy;\r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 8,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_1(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_1\";\n\n// set up\n;\n\n\n\nint x1=1;\n\n\nint y1=0;\n\n\nint x2=2;\n\n\nint y2=0;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_1\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=1;\n\n\nint y1=0;\n\n\nint x2=2;\n\n\nint y2=0;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_1\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_1\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1945-###sois===-62858-###eois===-628586-###lif===-3-###soif===-###eoif===-83-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_1\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        \r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      },
+      {
+        "id" : 9,
+        "dt" : {
+          "type" : "com.dse.testdata.object.UnitUnderTestNode",
+          "name" : "anim.cc",
+          "virtual_name" : "NON_VALUE",
+          "sourceNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc",
+          "children" : [ {
+            "type" : "com.dse.testdata.object.RootDataNode",
+            "name" : "SBF",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "level" : "SBF"
+          }, {
+            "type" : "com.dse.testdata.object.GlobalRootDataNode",
+            "name" : "GLOBAL",
+            "virtual_name" : "NON_VALUE",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ ],
+            "level" : "GLOBAL"
+          }, {
+            "type" : "com.dse.testdata.object.SubprogramNode",
+            "name" : "idist(int,int,int,int)",
+            "virtual_name" : "NON_VALUE",
+            "dataType" : "int",
+            "realType" : "int",
+            "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+            "paramExpectedOuputs" : [ {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "EXPECTED_x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "EXPECTED_y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "EXPECTED_y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "null"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "EXPECTED_x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ],
+            "children" : [ {
+              "type" : "com.dse.testdata.object.RootDataNode",
+              "name" : "STATIC",
+              "virtual_name" : "NON_VALUE",
+              "functionNode" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)",
+              "level" : "STATIC"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x1",
+              "virtual_name" : "x1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x1",
+              "correspondingType" : "int",
+              "value" : "2"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y1",
+              "virtual_name" : "y1",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y1",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "x2",
+              "virtual_name" : "x2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\x2",
+              "correspondingType" : "int",
+              "value" : "1"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "y2",
+              "virtual_name" : "y2",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\y2",
+              "correspondingType" : "int",
+              "value" : "0"
+            }, {
+              "type" : "com.dse.testdata.object.NormalNumberDataNode",
+              "name" : "RETURN",
+              "virtual_name" : "AKA_EXPECTED_OUTPUT",
+              "dataType" : "int",
+              "realType" : "int",
+              "external" : false,
+              "correspondingVar" : ".\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\\RETURN",
+              "correspondingType" : "int",
+              "value" : "null"
+            } ]
+          } ]
+        },
+        "td" : "void AKA_TEST_idist_int_int_int_int_manual_2(void) {\n{\nAKA_test_case_name=\"idist_int_int_int_int_manual_2\";\n\n// set up\n;\n\n\n\nint x1=2;\n\n\nint y1=0;\n\n\nint x2=1;\n\n\nint y2=0;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n\n\nAKA_mark(\"<<PRE-CALLING>> Test idist_int_int_int_int_manual_2\");int AKA_ACTUAL_OUTPUT=idist(x1,y1,x2,y2);\nAKA_fCall++;AKA_mark(\"Return from: .\\\\alexbatalov_fallout1-ce\\\\src\\\\anim.cc\\\\idist(int,int,int,int)\");\n\n\n\n\n// tear down\n;\n}\n}\n",
+        "simplified_t" : "\n\n\nint x1=2;\n\n\nint y1=0;\n\n\nint x2=1;\n\n\nint y2=0;\n\n\nint AKA_EXPECTED_OUTPUT;\n\n/* RootDataNode STATIC */\n/* NormalNumberDataNode x1 */\n/* NormalNumberDataNode y1 */\n/* NormalNumberDataNode x2 */\n/* NormalNumberDataNode y2 */\n/* NormalNumberDataNode RETURN */\n\n",
+        "isAutomated" : false,
+        "testpath" : "Calling: .\\alexbatalov_fallout1-ce\\src\\fps_limiter.cc\\FpsLimiter::FpsLimiter(unsigned int)\r\nBEGIN OF IDIST_INT_INT_INT_INT_MANUAL_2\r\n<<PRE-CALLING>> Test idist_int_int_int_int_manual_2\r\nCalling: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1944###sois===62831###eois===62848###lif===2###soif===50###eoif===67###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1945###sois===62858###eois===62864###lif===3###soif===77###eoif===83###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1946###sois===62877###eois===62886###lif===4###soif===96###eoif===105###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1949###sois===62901###eois===62918###lif===7###soif===120###eoif===137###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###ifc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1950###sois===62928###eois===62934###lif===8###soif===147###eoif===153###isc===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===-1950-###sois===-62928-###eois===-629286-###lif===-8-###soif===-###eoif===-153-###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1954###sois===62971###eois===63001###lif===12###soif===190###eoif===220###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nlis===1956###sois===63009###eois===63035###lif===14###soif===228###eoif===254###ins===true###function===.\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nReturn from: .\\alexbatalov_fallout1-ce\\src\\anim.cc\\idist(int,int,int,int)\r\nEND OF IDIST_INT_INT_INT_INT_MANUAL_2\r\n",
+        "executed_fm" : "",
+        "executed_fm_masked" : "int idist(int x1, int y1, int x2, int y2)\r\n{\r\n    int dx = x2 - x1;\r\n    if (dx < 0) {\r\n        dx = -dx;\r\n    }\r\n\r\n    int dy = y2 - y1;\r\n    if (dy < 0) {\r\n        \r\n    }\r\n\r\n    int dm = (dx <= dy) ? dx : dy;\r\n\r\n    return dx + dy - (dm / 2);\r\n}",
+        "executed_m" : [ ],
+        "executed_m_masked" : "",
+        "stub" : [ ]
+      }
+    ],
+    "fm": "int idist(int x1, int y1, int x2, int y2)\r {\r     int dx = x2 - x1;\r     if (dx < 0) {\r         dx = -dx;\r     }\r \r     int dy = y2 - y1;\r     if (dy < 0) {\r         dy = -dy;\r     }\r \r     int dm = (dx <= dy) ? dx : dy;\r \r     return dx + dy - (dm / 2);\r }"
+  }
+]
